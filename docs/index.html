@@ -234,7 +234,7 @@
   <div class="meta-row">
     <span>Lane: <strong>Refresh / Content Opportunity Scoring</strong></span>
     <span>Author: <strong>Shwetabh</strong></span>
-    <span>Status: <strong>In progress — W01–W04 complete</strong></span>
+    <span>Status: <strong>In progress — W01–W05 complete</strong></span>
   </div>
 </header>
 
@@ -272,7 +272,7 @@
   <p>An anonymized content-refresh dataset of <strong>30,000 rows across 32 anonymized clients</strong> (<code>data/raw/content_refresh_anonymized.csv</code>), used for early framing and the W02 baseline comparison.</p>
   <h3>Warehouse release</h3>
   <p>From Week 3 onward, the full gated Hugging Face warehouse (<code>FlyRank/internship-warehouse</code>), queried via DuckDB. All feature and label development uses the <span class="inline-code">month=2026-03</span> partition. The warehouse's <span class="inline-code">_sample</span> table represents a later, sealed month and is used only to test query mechanics — never for feature or label development, to avoid any risk of the analysis leaking into evaluation.</p>
-  <div class="todo">Full warehouse feature set from W05+ modeling to be documented here — columns used, exclusions, and date-window boundaries for the trained-model stage.</div>
+  <p><strong>Note on scope:</strong> the W05 trained-model stage below uses the starter CSV rather than the full warehouse — this keeps the model directly comparable to the W04 rule baseline, which was also built on the starter CSV. Expanding onto the full warehouse (with proper per-client time windows) is a natural next step once the starter-scale comparison holds up.</p>
 </section>
 
 <section id="methodology">
@@ -293,7 +293,11 @@
   <h3>Label & leakage discipline</h3>
   <p>An early proxy label, <code>trend_direction</code>, was found to be unreliable: percentage-change math on near-zero baseline traffic produces misleading swings — pages showing a nominal "up" trend of +58% despite zero clicks in both the before and after windows. This proxy is flagged for replacement with a proper future-window label in the modeling stage.</p>
   <p>A leakage check was also run deliberately: using next-month impressions as a feature causes model AUC to spike toward 1.0 — an unambiguous sign of using information the model shouldn't have access to at prediction time. This trap is documented, not fixed away, as evidence of leakage awareness going into the modeling stage.</p>
-  <div class="todo">Feature list, train/validation split design (client-holdout or time-aware), and model family selection for the trained ranking model.</div>
+  <h3>Trained model (W05)</h3>
+  <p><strong>Target:</strong> <code>is_declining_label</code> — 1 when <code>trend_direction == "down"</code>, the same label the data dictionary defines and explicitly walls off from ever being a model input (along with <code>trend_direction</code> and <code>trend_pct</code> themselves).</p>
+  <p><strong>Features:</strong> <code>days_since_last_update</code>, <code>ctr</code>, <code>avg_position</code>, <code>impressions_90d</code>, <code>clicks_90d</code>, <code>engagement_rate</code>, <code>scroll_rate</code>, <code>content_age_days</code>, <code>word_count</code> (numeric), plus <code>position_tier</code>, <code>freshness_tier</code>, <code>content_type</code>, <code>main_intent</code> (one-hot encoded). No product-flag or label-source columns anywhere in the feature set.</p>
+  <p><strong>Split:</strong> client-holdout, not a random row split — 26 of 32 clients in train, 6 held out entirely for test. A random row split would let the model recognize a held-out client's own traffic level or content mix from other rows of that same client seen in training; grouping by client closes that gap.</p>
+  <p><strong>Models:</strong> Logistic Regression (interpretable floor) and Random Forest (captures the staleness × CTR-gap interaction the W04 rule had to hard-code manually).</p>
 </section>
 
 <section id="results">
@@ -317,7 +321,21 @@
   </div>
   <h3>Ranked action queue (W04)</h3>
   <p>Applying the <code>stale_and_ctr_underperform</code> rule produced a ranked queue (<code>work/outputs/baseline_action_score.csv</code>), reviewed line-by-line for the top 10 flagged pages, including an explicit check of what evidence would make each flag wrong.</p>
-  <div class="todo">Trained model results — precision@20 (and any secondary ranking metrics) against the same 0.31 baseline. This is the core open result of the paper.</div>
+
+  <h3>Trained model vs. baseline (W05)</h3>
+  <p>The W04 rule, a Logistic Regression, and a Random Forest were all evaluated on the same held-out client split, against the same <code>is_declining_label</code> target:</p>
+  <table>
+    <tr><th>Approach</th><th>Precision@20</th><th>Precision@50</th><th>ROC AUC</th></tr>
+    <tr><td>W04 rule (<code>stale_and_ctr_underperform</code>)</td><td class="mono">0.300</td><td class="mono">0.180</td><td class="mono">—</td></tr>
+    <tr><td>Logistic Regression</td><td class="mono">0.300</td><td class="mono">0.580</td><td class="mono">0.691</td></tr>
+    <tr><td><strong>Random Forest</strong></td><td class="mono"><strong>0.600</strong></td><td class="mono"><strong>0.600</strong></td><td class="mono"><strong>0.735</strong></td></tr>
+    <tr><td>Random ranking (base rate)</td><td class="mono">0.391</td><td class="mono">0.391</td><td class="mono">0.500</td></tr>
+  </table>
+  <div class="callout flag">
+    <span class="label">Honest finding</span>
+    The W04 rule actually falls <em>below</em> random ranking at precision@50 (0.180 vs. a 0.391 base rate) on this held-out set of clients — the hand-built staleness-AND-CTR-gap condition doesn't generalize well to clients it wasn't built against. Random Forest is the clear winner on both cutoffs and beats random ranking comfortably, which the rule alone did not.
+  </div>
+  <p>Random Forest's top features — <code>impressions_90d</code> (0.24), <code>content_age_days</code> (0.16), and <code>avg_position</code> (0.16) — are spread across several signals rather than dominated by one, which argues against leakage. All three make intuitive sense: higher-traffic, older, better-ranked pages are where a real decline is both easier to measure and more likely to reflect an actual trend rather than noise.</p>
 </section>
 
 <section id="limitations">
@@ -329,6 +347,8 @@
     <li><strong>Zero-click anomaly:</strong> a subset of pages register meaningful search demand alongside zero recorded clicks, worth flagging for review rather than treating as a real behavioral signal.</li>
     <li><strong>No per-client normalization:</strong> scores are currently comparable within the dataset as a whole, not fairly comparable across clients of very different scale.</li>
     <li><strong>Proxy label limitation:</strong> the <code>trend_direction</code> label used during framing is a percentage-change artifact, not a clean measure of real performance change (see Methodology).</li>
+    <li><strong>The trained model's reliability is narrow:</strong> the Random Forest's error rate is 9.1% on <code>top_3</code>-ranked pages but 39–45% everywhere else (<code>page_1</code>, <code>page_3_5</code>, <code>striking</code>, <code>deep</code>) — it is currently only solidly trustworthy for the best-ranked tier.</li>
+    <li><strong>Near-zero-traffic pages remain the hardest cases:</strong> the model's most confidently wrong predictions were all on pages with 1–3 total impressions over 90 days — exactly where the underlying label is noisiest, since a page moving from "1 click" to "0 clicks" registers as a full decline despite carrying almost no real signal.</li>
   </ul>
 </section>
 
@@ -336,11 +356,12 @@
   <div class="section-label">07 / Ranked Recommendations</div>
   <h2>Action playbook</h2>
   <ol class="list">
-    <li><strong>Don't ship the hand-weighted heuristic as-is</strong> — it underperforms the trivial baseline; treat it as a stepping stone, not a deliverable.</li>
-    <li><strong>Prioritize the trained model over further heuristic tuning</strong> — the honest result argues directly for learning weights from outcomes rather than continuing to hand-tune them.</li>
+    <li><strong>Ship the Random Forest, not the W04 rule</strong> — the rule underperforms random ranking at precision@50 on held-out clients; the trained model beats both the rule and random ranking clearly.</li>
+    <li><strong>Restrict production use to the <code>top_3</code> position tier for now</strong> — that's the only tier where the model's error rate (9.1%) is low enough to trust without manual review.</li>
+    <li><strong>Add a minimum-impression floor to the label itself</strong> before any further training — near-zero-traffic pages are the model's most confidently wrong cases precisely because the label is noise at that volume, not because the model is failing.</li>
     <li><strong>Add per-client normalization</strong> before deploying any score across clients of different traffic scale.</li>
     <li><strong>Exclude or repair the 91–180 day staleness tier</strong> until the batch artifact behind the repeated 104-day value is understood.</li>
-    <li><strong>Replace <code>trend_direction</code></strong> with a proper forward-looking label before using it in any trained model.</li>
+    <li><strong>Replace <code>trend_direction</code></strong> with a proper forward-looking label before scaling this onto the full warehouse.</li>
   </ol>
 </section>
 
@@ -354,9 +375,9 @@
     <tr><td>W02</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w02_ml_task_framing.ipynb">w02_ml_task_framing.ipynb</a></td></tr>
     <tr><td>W03</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w03_data_contract.ipynb">w03_data_contract.ipynb</a></td></tr>
     <tr><td>W04</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w04_baseline_score.ipynb">w04_baseline_score.ipynb</a></td></tr>
+    <tr><td>W05</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w05_model.ipynb">w05_model.ipynb</a></td></tr>
   </table>
   <p>Repository: <a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh">github.com/Shwetabh1013/flyrank-ml-internship-shwetabh</a></p>
-  <div class="todo">Links to W05+ modeling notebook(s) once committed.</div>
 </section>
 
 <footer>
