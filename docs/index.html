@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Refresh Priority Scoring for Content at Scale — FlyRank ML Internship Capstone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #F5F6F1;
+    --bg-raised: #FBFBF8;
+    --ink: #1A1D1B;
+    --ink-soft: #40453F;
+    --muted: #6E7268;
+    --accent: #2C3E63;
+    --accent-soft: #E7EAF1;
+    --flag: #93401F;
+    --flag-soft: #F3E6DE;
+    --line: #DBDDD3;
+    --mono: 'IBM Plex Mono', monospace;
+    --serif: 'Source Serif 4', Georgia, serif;
+    --sans: 'Inter', -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:17px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:2px;}
+  a:hover{text-decoration:none;}
+  ::selection{background:var(--accent-soft);}
+
+  .wrap{max-width:760px;margin:0 auto;padding:0 24px;}
+
+  header.masthead{
+    padding:80px 24px 56px;
+    max-width:760px;
+    margin:0 auto;
+    border-bottom:1px solid var(--line);
+  }
+  .kicker{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--muted);
+    margin-bottom:18px;
+  }
+  h1{
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:2.6rem;
+    line-height:1.15;
+    margin:0 0 20px;
+    letter-spacing:-0.01em;
+    max-width:14ch;
+  }
+  .dek{
+    font-family:var(--serif);
+    font-style:italic;
+    font-size:1.2rem;
+    color:var(--ink-soft);
+    max-width:52ch;
+    margin:0 0 28px;
+  }
+  .meta-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px 22px;
+    font-size:14px;
+    color:var(--muted);
+  }
+  .meta-row span strong{color:var(--ink-soft); font-weight:600;}
+
+  nav.toc{
+    padding:28px 24px;
+    max-width:760px;
+    margin:0 auto;
+    border-bottom:1px solid var(--line);
+  }
+  nav.toc ol{
+    list-style:none;
+    margin:0;padding:0;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px 24px;
+    font-size:14.5px;
+  }
+  nav.toc li a{color:var(--ink-soft); text-decoration:none;}
+  nav.toc li a:hover{color:var(--accent);}
+  nav.toc .n{font-family:var(--mono); color:var(--muted); margin-right:8px;}
+
+  section{
+    padding:56px 24px;
+    max-width:760px;
+    margin:0 auto;
+    border-bottom:1px solid var(--line);
+  }
+  section:last-of-type{border-bottom:none;}
+
+  .section-label{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--muted);
+    margin-bottom:14px;
+  }
+  h2{
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:1.7rem;
+    margin:0 0 20px;
+  }
+  h3{
+    font-family:var(--sans);
+    font-weight:600;
+    font-size:1.05rem;
+    margin:28px 0 10px;
+  }
+  p{margin:0 0 16px; max-width:66ch;}
+  ul,ol.list{margin:0 0 16px; padding-left:22px;}
+  li{margin-bottom:8px;}
+
+  .callout{
+    background:var(--bg-raised);
+    border:1px solid var(--line);
+    border-left:3px solid var(--accent);
+    padding:16px 20px;
+    border-radius:2px;
+    margin:20px 0;
+    font-size:15.5px;
+  }
+  .callout.flag{border-left-color:var(--flag); background:var(--flag-soft);}
+  .callout .label{
+    font-family:var(--mono);
+    font-size:12px;
+    text-transform:none;
+    color:var(--muted);
+    display:block;
+    margin-bottom:6px;
+  }
+
+  .metric-row{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+    margin:24px 0;
+  }
+  .metric{
+    background:var(--bg-raised);
+    border:1px solid var(--line);
+    padding:18px 22px;
+    min-width:150px;
+    flex:1;
+  }
+  .metric .num{
+    font-family:var(--mono);
+    font-size:1.9rem;
+    color:var(--accent);
+    display:block;
+    line-height:1;
+    margin-bottom:6px;
+  }
+  .metric.lose .num{color:var(--flag);}
+  .metric .cap{font-size:13px; color:var(--muted);}
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    margin:20px 0;
+    font-size:14.5px;
+  }
+  th,td{
+    text-align:left;
+    padding:9px 12px;
+    border-bottom:1px solid var(--line);
+  }
+  th{
+    font-family:var(--mono);
+    font-weight:500;
+    font-size:12.5px;
+    color:var(--muted);
+    border-bottom:1px solid var(--ink-soft);
+  }
+  td.mono, .mono-inline{font-family:var(--mono); font-size:14px;}
+
+  .todo{
+    border:1px dashed var(--muted);
+    background:transparent;
+    padding:14px 18px;
+    font-family:var(--mono);
+    font-size:13.5px;
+    color:var(--muted);
+    margin:20px 0;
+  }
+  .todo::before{content:"TODO — W05+  "; color:var(--flag); font-weight:500;}
+
+  code, .inline-code{
+    font-family:var(--mono);
+    font-size:0.88em;
+    background:var(--accent-soft);
+    padding:1px 5px;
+    border-radius:2px;
+  }
+
+  footer{
+    padding:48px 24px 80px;
+    max-width:760px;
+    margin:0 auto;
+    color:var(--muted);
+    font-size:14px;
+  }
+  footer a{color:var(--muted);}
+
+  @media (max-width:600px){
+    header.masthead{padding:56px 20px 40px;}
+    h1{font-size:2rem;}
+    nav.toc ol{grid-template-columns:1fr;}
+    section{padding:40px 20px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="kicker">FlyRank AI Internship — ML Track — Capstone Research Paper</div>
+  <h1>Refresh Priority Scoring for Content at Scale</h1>
+  <p class="dek">Turning "which page do we refresh first?" from a gut call into a ranked, validated decision — and being honest about where a hand-tuned heuristic actually loses.</p>
+  <div class="meta-row">
+    <span>Lane: <strong>Refresh / Content Opportunity Scoring</strong></span>
+    <span>Author: <strong>Shwetabh</strong></span>
+    <span>Status: <strong>In progress — W01–W04 complete</strong></span>
+  </div>
+</header>
+
+<nav class="toc">
+  <ol>
+    <li><span class="n">01</span><a href="#abstract">Title & Abstract</a></li>
+    <li><span class="n">02</span><a href="#introduction">Introduction</a></li>
+    <li><span class="n">03</span><a href="#data">Data</a></li>
+    <li><span class="n">04</span><a href="#methodology">Methodology</a></li>
+    <li><span class="n">05</span><a href="#results">Results</a></li>
+    <li><span class="n">06</span><a href="#limitations">Limitations</a></li>
+    <li><span class="n">07</span><a href="#recommendations">Recommendations</a></li>
+    <li><span class="n">08</span><a href="#reproducibility">Reproducibility</a></li>
+  </ol>
+</nav>
+
+<section id="abstract">
+  <div class="section-label">01 / Title & Abstract</div>
+  <h2>Can a simple scoring rule tell editors which pages to refresh first — and does it actually beat doing nothing clever at all?</h2>
+  <p>FlyRank's editorial team had no consistent way to prioritize which content pages needed a refresh, relying on ad-hoc picks by age or traffic. This project frames the problem as ranking, not prediction: combine staleness, click performance, and search demand into a single priority score. A hand-weighted version of that score was tested with precision@20 against the simplest possible baseline — ranking by staleness alone — and it lost, 0.29 to 0.31. Rather than tuning the heuristic until it won, that result was kept as the finding: manual weights aren't reliable here, which is the direct argument for training a model on real historical outcomes instead of guessing at weights. That trained-model comparison is the next stage of this paper.</p>
+</section>
+
+<section id="introduction">
+  <div class="section-label">02 / Introduction</div>
+  <h2>The decision this work supports</h2>
+  <p>Editors need to decide, every week, which of thousands of pages to spend limited refresh capacity on. Individual signals — page age, current clicks, search demand — are visible separately, but nothing combines them into an ordered action list. The result is prioritization by gut feel: pick the oldest pages, or the lowest-traffic ones, with no consistent logic and no way to check afterward whether the choice was any good.</p>
+  <p>This paper treats the problem as a ranking task: editors don't need an exact forecast of future traffic, they need an ordered queue they can work down with confidence that the top of the list is genuinely worth acting on first.</p>
+</section>
+
+<section id="data">
+  <div class="section-label">03 / Data</div>
+  <h2>Data</h2>
+  <p>Two data sources were used across this project, both public-safe — no client names, domains, URLs, or credentials appear anywhere in this paper or the underlying notebooks.</p>
+  <h3>Starter dataset</h3>
+  <p>An anonymized content-refresh dataset of <strong>30,000 rows across 32 anonymized clients</strong> (<code>data/raw/content_refresh_anonymized.csv</code>), used for early framing and the W02 baseline comparison.</p>
+  <h3>Warehouse release</h3>
+  <p>From Week 3 onward, the full gated Hugging Face warehouse (<code>FlyRank/internship-warehouse</code>), queried via DuckDB. All feature and label development uses the <span class="inline-code">month=2026-03</span> partition. The warehouse's <span class="inline-code">_sample</span> table represents a later, sealed month and is used only to test query mechanics — never for feature or label development, to avoid any risk of the analysis leaking into evaluation.</p>
+  <div class="todo">Full warehouse feature set from W05+ modeling to be documented here — columns used, exclusions, and date-window boundaries for the trained-model stage.</div>
+</section>
+
+<section id="methodology">
+  <div class="section-label">04 / Methodology</div>
+  <h2>Methodology</h2>
+  <h3>Framing</h3>
+  <p>The task is framed as ranking, not point prediction. Three observed signals — content staleness, current clicks, and search demand — are combined into a single priority score, normalized onto a common scale so no single metric dominates (clicks can run into the thousands; page age is measured in days).</p>
+  <h3>Baseline</h3>
+  <p>The baseline is deliberately simple: rank pages by staleness alone (days since last update), with no other signal involved. Any candidate scoring approach has to beat this before it earns any claim of being useful.</p>
+  <h3>Signal verification</h3>
+  <p>Two candidate signals were checked against the data before being trusted in a scoring rule:</p>
+  <table>
+    <tr><th>Signal</th><th>Verdict</th><th>Note</th></tr>
+    <tr><td>Staleness</td><td class="mono">MIXED</td><td>Reverses direction in the 181+ day tier</td></tr>
+    <tr><td>CTR vs. search position</td><td class="mono">CONFIRMED</td><td>Monotonic drop as position worsens</td></tr>
+  </table>
+  <p>Based on this, the scoring rule used is <code>stale_and_ctr_underperform</code> — pages flagged only when both staleness and CTR-vs-position underperformance agree, rather than trusting staleness alone given its mixed verdict.</p>
+  <h3>Label & leakage discipline</h3>
+  <p>An early proxy label, <code>trend_direction</code>, was found to be unreliable: percentage-change math on near-zero baseline traffic produces misleading swings — pages showing a nominal "up" trend of +58% despite zero clicks in both the before and after windows. This proxy is flagged for replacement with a proper future-window label in the modeling stage.</p>
+  <p>A leakage check was also run deliberately: using next-month impressions as a feature causes model AUC to spike toward 1.0 — an unambiguous sign of using information the model shouldn't have access to at prediction time. This trap is documented, not fixed away, as evidence of leakage awareness going into the modeling stage.</p>
+  <div class="todo">Feature list, train/validation split design (client-holdout or time-aware), and model family selection for the trained ranking model.</div>
+</section>
+
+<section id="results">
+  <div class="section-label">05 / Results</div>
+  <h2>Results</h2>
+  <h3>Heuristic vs. baseline (W02)</h3>
+  <p>The hand-weighted priority score was evaluated with precision@20 against the staleness-only baseline on the starter dataset:</p>
+  <div class="metric-row">
+    <div class="metric lose">
+      <span class="num">0.29</span>
+      <span class="cap">Hand-weighted heuristic — precision@20</span>
+    </div>
+    <div class="metric">
+      <span class="num">0.31</span>
+      <span class="cap">Staleness-only baseline — precision@20</span>
+    </div>
+  </div>
+  <div class="callout flag">
+    <span class="label">Honest finding</span>
+    The heuristic lost to the simplest possible baseline. This result was kept as-is rather than tuned until it "won" — the finding itself is the evidence that manually chosen weights aren't reliable for this problem.
+  </div>
+  <h3>Ranked action queue (W04)</h3>
+  <p>Applying the <code>stale_and_ctr_underperform</code> rule produced a ranked queue (<code>work/outputs/baseline_action_score.csv</code>), reviewed line-by-line for the top 10 flagged pages, including an explicit check of what evidence would make each flag wrong.</p>
+  <div class="todo">Trained model results — precision@20 (and any secondary ranking metrics) against the same 0.31 baseline. This is the core open result of the paper.</div>
+</section>
+
+<section id="limitations">
+  <div class="section-label">06 / Limitations & Honest Framing</div>
+  <h2>Limitations</h2>
+  <p>Findings in this paper are <strong>observed and directional</strong>, not causal — nothing here demonstrates a causal refresh impact on rankings, and none of it should be read as decoding a search engine's ranking algorithm.</p>
+  <ul>
+    <li><strong>Batch artifact in the staleness signal:</strong> 8,773 of 9,171 rows in the 91–180 day tier share an identical <code>days_since_last_update</code> value of 104 — a strong signal of a data collection artifact rather than genuine variation, not a property of the pages themselves.</li>
+    <li><strong>Zero-click anomaly:</strong> a subset of pages register meaningful search demand alongside zero recorded clicks, worth flagging for review rather than treating as a real behavioral signal.</li>
+    <li><strong>No per-client normalization:</strong> scores are currently comparable within the dataset as a whole, not fairly comparable across clients of very different scale.</li>
+    <li><strong>Proxy label limitation:</strong> the <code>trend_direction</code> label used during framing is a percentage-change artifact, not a clean measure of real performance change (see Methodology).</li>
+  </ul>
+</section>
+
+<section id="recommendations">
+  <div class="section-label">07 / Ranked Recommendations</div>
+  <h2>Action playbook</h2>
+  <ol class="list">
+    <li><strong>Don't ship the hand-weighted heuristic as-is</strong> — it underperforms the trivial baseline; treat it as a stepping stone, not a deliverable.</li>
+    <li><strong>Prioritize the trained model over further heuristic tuning</strong> — the honest result argues directly for learning weights from outcomes rather than continuing to hand-tune them.</li>
+    <li><strong>Add per-client normalization</strong> before deploying any score across clients of different traffic scale.</li>
+    <li><strong>Exclude or repair the 91–180 day staleness tier</strong> until the batch artifact behind the repeated 104-day value is understood.</li>
+    <li><strong>Replace <code>trend_direction</code></strong> with a proper forward-looking label before using it in any trained model.</li>
+  </ol>
+</section>
+
+<section id="reproducibility">
+  <div class="section-label">08 / Reproducibility</div>
+  <h2>Reproducibility</h2>
+  <p>All notebooks referenced in this paper are committed to the public repository below, in reading order.</p>
+  <table>
+    <tr><th>Week</th><th>Notebook</th></tr>
+    <tr><td>W01</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w01_research_question.ipynb">w01_research_question.ipynb</a></td></tr>
+    <tr><td>W02</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w02_ml_task_framing.ipynb">w02_ml_task_framing.ipynb</a></td></tr>
+    <tr><td>W03</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w03_data_contract.ipynb">w03_data_contract.ipynb</a></td></tr>
+    <tr><td>W04</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w04_baseline_score.ipynb">w04_baseline_score.ipynb</a></td></tr>
+  </table>
+  <p>Repository: <a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh">github.com/Shwetabh1013/flyrank-ml-internship-shwetabh</a></p>
+  <div class="todo">Links to W05+ modeling notebook(s) once committed.</div>
+</section>
+
+<footer>
+  <p>Built on the FlyRank ML Internship dataset — <a href="https://flyrank.ai">flyrank.ai</a>.</p>
+  <p>Findings in this paper are observed and directional, intended to support editorial decision-making, not to characterize or reverse-engineer any search engine's ranking algorithm.</p>
+</footer>
+
+</body>
+</html>
