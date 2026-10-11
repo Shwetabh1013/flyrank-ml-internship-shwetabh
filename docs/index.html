@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Refresh Priority Scoring for Content at Scale — FlyRank ML Internship Capstone</title>
+<title>Which Pages Will Lose Search Visibility? — Refresh Queue Capstone</title>
+<meta name="description" content="A content-refresh review queue validated on unseen clients: precision@20 0.83 vs a 0.63 base rate, using only information available before the outcome month.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -198,7 +199,6 @@
     color:var(--muted);
     margin:20px 0;
   }
-  .todo::before{content:"TODO — W05+  "; color:var(--flag); font-weight:500;}
 
   code, .inline-code{
     font-family:var(--mono);
@@ -223,24 +223,34 @@
     nav.toc ol{grid-template-columns:1fr;}
     section{padding:40px 20px;}
   }
+
+  figure{margin:28px 0;}
+  figure img{width:100%;height:auto;display:block;}
+  figcaption{font-size:14.5px;color:var(--ink-soft);margin-top:10px;max-width:66ch;}
+  figure.timeline svg{width:100%;height:auto;display:block;background:var(--bg-raised);border:1px solid var(--line);}
+  pre{background:var(--bg-raised);border:1px solid var(--line);padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;padding:0;}
+  .table-scroll{overflow-x:auto;}
+  @media (max-width:600px){ table{font-size:13px;} th,td{padding:7px 6px;} }
 </style>
 </head>
 <body>
 
 <header class="masthead">
   <div class="kicker">FlyRank AI Internship — ML Track — Capstone Research Paper</div>
-  <h1>Refresh Priority Scoring for Content at Scale</h1>
-  <p class="dek">Turning "which page do we refresh first?" from a gut call into a ranked, validated decision — and being honest about where a hand-tuned heuristic actually loses.</p>
+  <h1>Which pages are about to lose search visibility?</h1>
+  <p class="dek">A content-refresh review queue that only uses what an editor could know in advance — validated on clients it never saw, and honest about where the earlier, better-looking numbers came from.</p>
   <div class="meta-row">
     <span>Lane: <strong>Refresh / Content Opportunity Scoring</strong></span>
     <span>Author: <strong>Shwetabh</strong></span>
-    <span>Status: <strong>In progress — W01–W05 complete</strong></span>
+    <span>Status: <strong>Complete — W01–W07 + capstone</strong></span>
+    <span>Updated: <strong>October 2026</strong></span>
   </div>
 </header>
 
-<nav class="toc">
+<nav class="toc" aria-label="Sections">
   <ol>
-    <li><span class="n">01</span><a href="#abstract">Title & Abstract</a></li>
+    <li><span class="n">01</span><a href="#abstract">Abstract</a></li>
     <li><span class="n">02</span><a href="#introduction">Introduction</a></li>
     <li><span class="n">03</span><a href="#data">Data</a></li>
     <li><span class="n">04</span><a href="#methodology">Methodology</a></li>
@@ -248,141 +258,244 @@
     <li><span class="n">06</span><a href="#limitations">Limitations</a></li>
     <li><span class="n">07</span><a href="#recommendations">Recommendations</a></li>
     <li><span class="n">08</span><a href="#reproducibility">Reproducibility</a></li>
+    <li><span class="n">09</span><a href="#credit">Acknowledgments &amp; data credit</a></li>
   </ol>
 </nav>
 
 <section id="abstract">
-  <div class="section-label">01 / Title & Abstract</div>
-  <h2>Can a simple scoring rule tell editors which pages to refresh first — and does it actually beat doing nothing clever at all?</h2>
-  <p>FlyRank's editorial team had no consistent way to prioritize which content pages needed a refresh, relying on ad-hoc picks by age or traffic. This project frames the problem as ranking, not prediction: combine staleness, click performance, and search demand into a single priority score. A hand-weighted version of that score was tested with precision@20 against the simplest possible baseline — ranking by staleness alone — and it lost, 0.29 to 0.31. Rather than tuning the heuristic until it won, that result was kept as the finding: manual weights aren't reliable here, which is the direct argument for training a model on real historical outcomes instead of guessing at weights. That trained-model comparison is the next stage of this paper.</p>
+  <div class="section-label">01 / Title &amp; Abstract</div>
+  <h2>Can a model tell editors which pages to review first — using only what they'd know in advance?</h2>
+  <p>Editors choose which pages to refresh each month by gut feel, so this project asks whether a ranked queue can pick the pages that are about to lose more than 20% of their search impressions. It uses FlyRank's anonymized content-refresh dataset: 30,000 pages from 32 clients, of which 21,578 pages have enough traffic for a decline to be meaningful. A logistic regression sees only information from <em>before</em> the outcome month and is evaluated on 25 client-grouped folds, against the base rate, a staleness rule, and the hand-built rule from earlier weeks. On clients it never trained on, it raised precision@20 from a 0.63 base rate to <strong>0.83</strong> (± 0.09), while the staleness rule and the hand-built W04 rule ranked no better than chance (AUC 0.49 and 0.52). The lift is concentrated at the top of the list (overall AUC ≈ 0.62), so the output is a per-client top-10 review queue with reason codes — decision support for where to look first, not a traffic forecast or proof that refreshing works.</p>
+  <div class="metric-row">
+    <div class="metric"><span class="num">0.83</span><span class="cap">precision@20, selected model (± 0.09, 25 folds)</span></div>
+    <div class="metric"><span class="num" style="color:var(--muted)">0.63</span><span class="cap">base rate — random picks</span></div>
+    <div class="metric lose"><span class="num">0.58</span><span class="cap">W04 hand-built rule, same folds</span></div>
+  </div>
 </section>
 
 <section id="introduction">
   <div class="section-label">02 / Introduction</div>
   <h2>The decision this work supports</h2>
-  <p>Editors need to decide, every week, which of thousands of pages to spend limited refresh capacity on. Individual signals — page age, current clicks, search demand — are visible separately, but nothing combines them into an ordered action list. The result is prioritization by gut feel: pick the oldest pages, or the lowest-traffic ones, with no consistent logic and no way to check afterward whether the choice was any good.</p>
-  <p>This paper treats the problem as a ranking task: editors don't need an exact forecast of future traffic, they need an ordered queue they can work down with confidence that the top of the list is genuinely worth acting on first.</p>
+  <p>An editor opens a client's site with time to refresh maybe ten pages this month, out of hundreds. Individual numbers are visible — page age, clicks, search demand — but nothing turns them into an ordered list. So the pick defaults to "oldest first" or "lowest traffic first", and nobody checks afterwards whether those were the right pages.</p>
+  <p>This paper treats the task as <strong>ranking, not forecasting</strong>. The editor doesn't need next month's exact traffic; they need the top of the list to be pages that genuinely are about to slide. A wrong pick costs an editor hour on a healthy page; a miss lets a page keep losing visibility.</p>
+  <h3>How the project got here</h3>
+  <p>The path matters, because two earlier "results" turned out not to hold:</p>
+  <ul>
+    <li><strong>W02:</strong> a hand-weighted staleness + clicks + demand score lost to staleness alone (precision@20 0.29 vs 0.31). Kept as the finding: hand-picked weights aren't reliable here.</li>
+    <li><strong>W04:</strong> a transparent rule — stale <em>and</em> CTR below half its position-tier benchmark.</li>
+    <li><strong>W05:</strong> a random forest beat that rule on one held-out set of 6 clients (0.600 vs 0.300).</li>
+    <li><strong>W06:</strong> the validation audit found the W05 number rested on one small split and on features that overlapped the outcome's own time window. This paper reports the corrected design.</li>
+  </ul>
 </section>
 
 <section id="data">
   <div class="section-label">03 / Data</div>
   <h2>Data</h2>
-  <p>Two data sources were used across this project, both public-safe — no client names, domains, URLs, or credentials appear anywhere in this paper or the underlying notebooks.</p>
-  <h3>Starter dataset</h3>
-  <p>An anonymized content-refresh dataset of <strong>30,000 rows across 32 anonymized clients</strong> (<code>data/raw/content_refresh_anonymized.csv</code>), used for early framing and the W02 baseline comparison.</p>
-  <h3>Warehouse release</h3>
-  <p>From Week 3 onward, the full gated Hugging Face warehouse (<code>FlyRank/internship-warehouse</code>), queried via DuckDB. All feature and label development uses the <span class="inline-code">month=2026-03</span> partition. The warehouse's <span class="inline-code">_sample</span> table represents a later, sealed month and is used only to test query mechanics — never for feature or label development, to avoid any risk of the analysis leaking into evaluation.</p>
-  <p><strong>Note on scope:</strong> the W05 trained-model stage below uses the starter CSV rather than the full warehouse — this keeps the model directly comparable to the W04 rule baseline, which was also built on the starter CSV. Expanding onto the full warehouse (with proper per-client time windows) is a natural next step once the starter-scale comparison holds up.</p>
+  <p><strong>Release:</strong> the FlyRank ML Internship anonymized starter slice (<code>content_refresh_anonymized.csv</code>): 30,000 pages, 32 pseudonymized clients, one 90-day snapshot. Every page is at least 90 days old. The full gated warehouse release (<code>FlyRank/internship-warehouse</code>, queried with DuckDB) was used in W03 for the data contract and leakage demonstration; the model stays on the starter slice so every number here can be re-run without an access token.</p>
+  <p><strong>Time windows:</strong> search impressions, clicks and sessions are given for days 1–30, days 31–60 and the full 90 days, all counted back from export. Days 61–90 follow by subtraction.</p>
+  <div class="table-scroll"><table>
+    <tr><th>Scope</th><th>Pages</th><th>Clients</th><th>Declining rate</th></tr>
+    <tr><td>All pages</td><td class="mono">30,000</td><td class="mono">32</td><td class="mono">0.542</td></tr>
+    <tr><td>Measurable (≥ 30 impressions in days 31–60) — modelled</td><td class="mono">21,578</td><td class="mono">31</td><td class="mono">0.615</td></tr>
+    <tr><td>Scored for the live queue (≥ 30 impressions in days 1–30)</td><td class="mono">20,128</td><td class="mono">29</td><td class="mono">— (future)</td></tr>
+  </table></div>
+  <h3>What was excluded, and why</h3>
+  <ul>
+    <li><strong>Pages under 30 impressions in the comparison month.</strong> In W05, all three most-confident errors were pages with 1–3 impressions in 90 days: going from 1 impression to 0 counts as a "decline". That's noise, not a signal.</li>
+    <li><strong><code>trend_direction</code>, <code>trend_pct</code></strong> — the label is computed from them.</li>
+    <li><strong>Every 90-day aggregate</strong> (CTR, average position, engagement, scroll) and <strong>update dates</strong> — they overlap the outcome window (Methodology).</li>
+    <li><strong>Client and content IDs</strong> — used only to group the split. <strong>Generation metadata</strong> (LLM provider/model) — not a property of the page's search performance.</li>
+  </ul>
+  <p>No client names, domains, URLs or search queries appear anywhere in this paper or the repository; IDs are pseudonyms.</p>
 </section>
 
 <section id="methodology">
   <div class="section-label">04 / Methodology</div>
   <h2>Methodology</h2>
-  <h3>Framing</h3>
-  <p>The task is framed as ranking, not point prediction. Three observed signals — content staleness, current clicks, and search demand — are combined into a single priority score, normalized onto a common scale so no single metric dominates (clicks can run into the thousands; page age is measured in days).</p>
-  <h3>Baseline</h3>
-  <p>The baseline is deliberately simple: rank pages by staleness alone (days since last update), with no other signal involved. Any candidate scoring approach has to beat this before it earns any claim of being useful.</p>
-  <h3>Signal verification</h3>
-  <p>Two candidate signals were checked against the data before being trusted in a scoring rule:</p>
-  <table>
-    <tr><th>Signal</th><th>Verdict</th><th>Note</th></tr>
-    <tr><td>Staleness</td><td class="mono">MIXED</td><td>Reverses direction in the 181+ day tier</td></tr>
-    <tr><td>CTR vs. search position</td><td class="mono">CONFIRMED</td><td>Monotonic drop as position worsens</td></tr>
-  </table>
-  <p>Based on this, the scoring rule used is <code>stale_and_ctr_underperform</code> — pages flagged only when both staleness and CTR-vs-position underperformance agree, rather than trusting staleness alone given its mixed verdict.</p>
-  <h3>Label & leakage discipline</h3>
-  <p>An early proxy label, <code>trend_direction</code>, was found to be unreliable: percentage-change math on near-zero baseline traffic produces misleading swings — pages showing a nominal "up" trend of +58% despite zero clicks in both the before and after windows. This proxy is flagged for replacement with a proper future-window label in the modeling stage.</p>
-  <p>A leakage check was also run deliberately: using next-month impressions as a feature causes model AUC to spike toward 1.0 — an unambiguous sign of using information the model shouldn't have access to at prediction time. This trap is documented, not fixed away, as evidence of leakage awareness going into the modeling stage.</p>
-  <h3>Trained model (W05)</h3>
-  <p><strong>Target:</strong> <code>is_declining_label</code> — 1 when <code>trend_direction == "down"</code>, the same label the data dictionary defines and explicitly walls off from ever being a model input (along with <code>trend_direction</code> and <code>trend_pct</code> themselves).</p>
-  <p><strong>Features:</strong> <code>days_since_last_update</code>, <code>ctr</code>, <code>avg_position</code>, <code>impressions_90d</code>, <code>clicks_90d</code>, <code>engagement_rate</code>, <code>scroll_rate</code>, <code>content_age_days</code>, <code>word_count</code> (numeric), plus <code>position_tier</code>, <code>freshness_tier</code>, <code>content_type</code>, <code>main_intent</code> (one-hot encoded). No product-flag or label-source columns anywhere in the feature set.</p>
-  <p><strong>Split:</strong> client-holdout, not a random row split — 26 of 32 clients in train, 6 held out entirely for test. A random row split would let the model recognize a held-out client's own traffic level or content mix from other rows of that same client seen in training; grouping by client closes that gap.</p>
-  <p><strong>Models:</strong> Logistic Regression (interpretable floor) and Random Forest (captures the staleness × CTR-gap interaction the W04 rule had to hard-code manually).</p>
+
+  <h3>Label</h3>
+  <p>A page is <strong>declining</strong> when its impressions in days 1–30 are more than 20% below days 31–60 (<code>trend_direction == "down"</code> in the dataset), on measurable pages only. It is a proxy: seasonality, SERP layout changes or tracking gaps can produce the same drop.</p>
+
+  <h3>The key assumption: decide before the outcome</h3>
+  <p>A forecast an editor can act on may only use information that existed <em>before</em> the outcome month started. So the model is trained as if the decision were made 30 days ago:</p>
+  <figure class="timeline" aria-label="Timeline of feature and label windows">
+    <svg viewBox="0 0 720 150" role="img">
+      <title>Timeline: features use days 61 to 90 and 31 to 60; the label compares days 1 to 30 with 31 to 60; W05 used 90-day totals that span all three.</title>
+      <g font-family="IBM Plex Mono, monospace" font-size="12" fill="#40453F">
+        <text x="20" y="18">days back from export →</text>
+        <text x="120" y="40" text-anchor="middle">90 ··· 61</text>
+        <text x="360" y="40" text-anchor="middle">60 ··· 31</text>
+        <text x="600" y="40" text-anchor="middle">30 ··· 1</text>
+      </g>
+      <rect x="10" y="50" width="226" height="30" rx="3" fill="#E7EAF1" stroke="#2C3E63"/>
+      <rect x="244" y="50" width="232" height="30" rx="3" fill="#E7EAF1" stroke="#2C3E63"/>
+      <rect x="484" y="50" width="226" height="30" rx="3" fill="#F3E6DE" stroke="#93401F"/>
+      <g font-family="Inter, sans-serif" font-size="13" text-anchor="middle">
+        <text x="123" y="70" fill="#2C3E63">feature</text>
+        <text x="360" y="70" fill="#2C3E63">feature + label baseline</text>
+        <text x="597" y="70" fill="#93401F">outcome (label)</text>
+      </g>
+      <rect x="10" y="98" width="700" height="22" rx="3" fill="none" stroke="#93401F" stroke-dasharray="5 4"/>
+      <g font-family="Inter, sans-serif" font-size="12.5" fill="#93401F">
+        <text x="360" y="114" text-anchor="middle">W05's 90-day CTR, position, impressions — spans the outcome window</text>
+      </g>
+      <g font-family="Inter, sans-serif" font-size="12.5" fill="#40453F">
+        <text x="360" y="142" text-anchor="middle">Live queue: the same features shifted forward 30 days → forecasts the next month</text>
+      </g>
+    </svg>
+  </figure>
+  <p>The W05 features — 90-day CTR, average position, impressions, clicks, engagement, and the last-update date — all include days 1–30. A page that dropped in that month also shows a worse 90-day position and CTR, and 68% of pages show an "update" inside that month. Those features describe the decline rather than anticipate it. With one snapshot, this also means position and engagement drop out of the model entirely: the CSV has no earlier sub-window for them.</p>
+
+  <h3>Features (23, all from days 31–90 or static)</h3>
+  <p>Log impressions, clicks and sessions for each of the two pre-outcome months; impression momentum between them; 60-day CTR; content age; word count; keyword search volume, competition and CPC with explicit "has data" flags (missingness follows content type, so a blind fill would smuggle the type in); content type; search intent.</p>
+
+  <h3>Baselines</h3>
+  <div class="table-scroll"><table>
+    <tr><th>Baseline</th><th>What it ranks by</th></tr>
+    <tr><td>Random ranking</td><td>Nothing — its precision equals the base rate</td></tr>
+    <tr><td>Staleness only (W02)</td><td>Days since last update</td></tr>
+    <tr><td>W04 rule</td><td>Stale (≥ 91 days) AND CTR under half its position-tier benchmark, scored by impressions; benchmark fit on training clients only</td></tr>
+    <tr><td>Momentum</td><td>Pages that just rose month-over-month will fall back</td></tr>
+  </table></div>
+
+  <h3>Validation design</h3>
+  <ul>
+    <li><strong>Client-grouped cross-validation:</strong> GroupKFold by client, 5 folds × 5 shuffles = <strong>25 held-out client groups</strong>. No client appears on both sides of a fold (asserted in code). Every candidate is scored on the identical folds.</li>
+    <li><strong>Metrics:</strong> precision@20 (primary since W01), precision@50, precision@10 <em>within each client's own queue</em> (how an editor actually uses it), and AUC — always next to the fold's base rate.</li>
+    <li><strong>Model selection, fixed in advance:</strong> logistic regression vs random forest on the honest features; the higher mean precision@20 ships.</li>
+  </ul>
+
+  <h3>Leakage checks</h3>
+  <ul>
+    <li>Assertion that no label-source, ID or generation-metadata column is a feature.</li>
+    <li>Window-overlap audit (above) — found and fixed.</li>
+    <li><strong>Planted leak:</strong> adding <code>impressions_last_30d</code> (the outcome itself) sends precision@20 to 1.000. If it hadn't, the evaluation harness would be broken.</li>
+    <li>Random row split reported next to the grouped split, to measure how much "remembering clients" was inflating scores.</li>
+  </ul>
 </section>
 
 <section id="results">
   <div class="section-label">05 / Results</div>
   <h2>Results</h2>
-  <h3>Heuristic vs. baseline (W02)</h3>
-  <p>The hand-weighted priority score was evaluated with precision@20 against the staleness-only baseline on the starter dataset:</p>
-  <div class="metric-row">
-    <div class="metric lose">
-      <span class="num">0.29</span>
-      <span class="cap">Hand-weighted heuristic — precision@20</span>
-    </div>
-    <div class="metric">
-      <span class="num">0.31</span>
-      <span class="cap">Staleness-only baseline — precision@20</span>
-    </div>
-  </div>
-  <div class="callout flag">
-    <span class="label">Honest finding</span>
-    The heuristic lost to the simplest possible baseline. This result was kept as-is rather than tuned until it "won" — the finding itself is the evidence that manually chosen weights aren't reliable for this problem.
-  </div>
-  <h3>Ranked action queue (W04)</h3>
-  <p>Applying the <code>stale_and_ctr_underperform</code> rule produced a ranked queue (<code>work/outputs/baseline_action_score.csv</code>), reviewed line-by-line for the top 10 flagged pages, including an explicit check of what evidence would make each flag wrong.</p>
 
-  <h3>Trained model vs. baseline (W05)</h3>
-  <p>The W04 rule, a Logistic Regression, and a Random Forest were all evaluated on the same held-out client split, against the same <code>is_declining_label</code> target:</p>
-  <table>
-    <tr><th>Approach</th><th>Precision@20</th><th>Precision@50</th><th>ROC AUC</th></tr>
-    <tr><td>W04 rule (<code>stale_and_ctr_underperform</code>)</td><td class="mono">0.300</td><td class="mono">0.180</td><td class="mono">—</td></tr>
-    <tr><td>Logistic Regression</td><td class="mono">0.300</td><td class="mono">0.580</td><td class="mono">0.691</td></tr>
-    <tr><td><strong>Random Forest</strong></td><td class="mono"><strong>0.600</strong></td><td class="mono"><strong>0.600</strong></td><td class="mono"><strong>0.735</strong></td></tr>
-    <tr><td>Random ranking (base rate)</td><td class="mono">0.391</td><td class="mono">0.391</td><td class="mono">0.500</td></tr>
-  </table>
+  <h3>1. A random split hides how much the score depends on which clients you test</h3>
+  <figure>
+    <img src="img/fig2_split_gap.svg" alt="Bar chart: precision@20 for the same W05 random forest is 0.98 under a random row split, 0.73 plus or minus 0.18 under a client-grouped split, and 0.60 on the single W05 holdout.">
+    <figcaption>Same W05 model, three evaluation designs. A random row split lets the model recognise clients it trained on (0.98). Grouped by client, the mean is 0.73 but individual held-out groups swing by ± 0.18 — W05's single 0.600 was one draw from that range.</figcaption>
+  </figure>
+
+  <h3>2. The selected model beats every rule on unseen clients</h3>
+  <figure>
+    <img src="img/fig1_results.svg" alt="Dot plot of precision@20 across 25 folds for seven approaches. Logistic regression averages 0.83, random forest 0.75, staleness 0.70, momentum 0.63, random 0.61, W04 rule 0.58. The W05-feature random forest averages 0.84 but uses overlapping windows. Base rate is 0.63.">
+    <figcaption>Each dot is one held-out client group; the bar is the mean. The logistic regression is the only honest approach that stays above the base rate on every fold. *The W05-feature model is shown for reference only: its inputs overlap the outcome window.</figcaption>
+  </figure>
+  <div class="table-scroll"><table>
+    <tr><th>Approach (same 25 folds)</th><th>P@20</th><th>P@50</th><th>Per-client P@10</th><th>AUC</th></tr>
+    <tr><td>Random ranking (base rate 0.633)</td><td class="mono">0.614</td><td class="mono">0.622</td><td class="mono">0.605</td><td class="mono">0.495</td></tr>
+    <tr><td>Staleness only (W02)</td><td class="mono">0.702</td><td class="mono">0.702</td><td class="mono">0.617</td><td class="mono">0.489</td></tr>
+    <tr><td>W04 rule</td><td class="mono">0.582</td><td class="mono">0.586</td><td class="mono">0.618</td><td class="mono">0.522</td></tr>
+    <tr><td>Momentum</td><td class="mono">0.626</td><td class="mono">0.652</td><td class="mono">0.612</td><td class="mono">0.481</td></tr>
+    <tr><td>Random forest, honest features</td><td class="mono">0.746</td><td class="mono">0.774</td><td class="mono">0.730</td><td class="mono">0.625</td></tr>
+    <tr><td><strong>Logistic regression, honest features (selected)</strong></td><td class="mono"><strong>0.828</strong></td><td class="mono"><strong>0.818</strong></td><td class="mono"><strong>0.758</strong></td><td class="mono"><strong>0.616</strong></td></tr>
+    <tr style="color:var(--muted)"><td>Random forest, W05 features (overlapping — not deployable)</td><td class="mono">0.844</td><td class="mono">0.864</td><td class="mono">0.828</td><td class="mono">0.662</td></tr>
+  </table></div>
+  <ul>
+    <li>The selected model matches or beats the W04 rule on <strong>96%</strong> of folds, staleness on 84%, and its own fold's base rate on 100%.</li>
+    <li>In an editor's terms: of the top 10 pages in a client's queue, about <strong>7–8</strong> actually declined, versus about 6 for random picks.</li>
+    <li>The overlapping-window model's extra ~0.04 AUC is roughly what reading the outcome window was worth. Giving it up is the cost of a queue that can actually be used ahead of time.</li>
+  </ul>
   <div class="callout flag">
-    <span class="label">Honest finding</span>
-    The W04 rule actually falls <em>below</em> random ranking at precision@50 (0.180 vs. a 0.391 base rate) on this held-out set of clients — the hand-built staleness-AND-CTR-gap condition doesn't generalize well to clients it wasn't built against. Random Forest is the clear winner on both cutoffs and beats random ranking comfortably, which the rule alone did not.
+    <span class="label">Negative results, kept</span>
+    Staleness — the default "refresh the oldest pages" heuristic — and the W04 stale-AND-low-CTR rule carry no ranking signal on unseen clients (AUC 0.49 and 0.52). Most update dates in this data are two batch values (20 and 104 days), not editorial history. The idea that pages which just rose will fall back (momentum) also shows nothing (AUC 0.48).
   </div>
-  <p>Random Forest's top features — <code>impressions_90d</code> (0.24), <code>content_age_days</code> (0.16), and <code>avg_position</code> (0.16) — are spread across several signals rather than dominated by one, which argues against leakage. All three make intuitive sense: higher-traffic, older, better-ranked pages are where a real decline is both easier to measure and more likely to reflect an actual trend rather than noise.</p>
+
+  <h3>3. What the model leans on</h3>
+  <figure>
+    <img src="img/fig3_coefficients.svg" alt="Horizontal bar chart of the ten largest logistic regression coefficients. Content age, recent clicks and recent sessions lower decline risk; recent and earlier impressions, recorded word count and unknown search intent raise it.">
+    <figcaption>Read impressions and clicks as a pair: at the same visibility, fewer clicks means more risk. Younger pages (in a slice where every page is at least 60 days old at training time) carry more risk than older ones.</figcaption>
+  </figure>
+  <p>Two directional observations, not causes. <strong>Visible-but-unclicked pages are at higher risk</strong> — the CTR intuition behind the W04 rule survives, as a continuous signal rather than a hard threshold. <strong>Younger pages are at higher risk than older ones</strong>, the opposite of "stale pages decay". In this slice, declining pages had a median age of 216 days vs 291 for growing pages, which also runs against the direction reported in FlyRank's March 2026 study. That study covers a broader population that includes much younger pages, so this is a scoping difference worth testing, not a contradiction.</p>
 </section>
 
 <section id="limitations">
-  <div class="section-label">06 / Limitations & Honest Framing</div>
-  <h2>Limitations</h2>
-  <p>Findings in this paper are <strong>observed and directional</strong>, not causal — nothing here demonstrates a causal refresh impact on rankings, and none of it should be read as decoding a search engine's ranking algorithm.</p>
+  <div class="section-label">06 / Limitations &amp; Honest Framing</div>
+  <h2>What this work cannot claim</h2>
+  <p>Everything here is <strong>observed</strong> in one dataset, <strong>measured</strong> on held-out clients, and offered as <strong>decision support</strong>. Nothing here identifies how a search engine ranks pages, and nothing shows that refreshing a page causes it to recover.</p>
   <ul>
-    <li><strong>Batch artifact in the staleness signal:</strong> 8,773 of 9,171 rows in the 91–180 day tier share an identical <code>days_since_last_update</code> value of 104 — a strong signal of a data collection artifact rather than genuine variation, not a property of the pages themselves.</li>
-    <li><strong>Zero-click anomaly:</strong> a subset of pages register meaningful search demand alongside zero recorded clicks, worth flagging for review rather than treating as a real behavioral signal.</li>
-    <li><strong>No per-client normalization:</strong> scores are currently comparable within the dataset as a whole, not fairly comparable across clients of very different scale.</li>
-    <li><strong>Proxy label limitation:</strong> the <code>trend_direction</code> label used during framing is a percentage-change artifact, not a clean measure of real performance change (see Methodology).</li>
-    <li><strong>The trained model's reliability is narrow:</strong> the Random Forest's error rate is 9.1% on <code>top_3</code>-ranked pages but 39–45% everywhere else (<code>page_1</code>, <code>page_3_5</code>, <code>striking</code>, <code>deep</code>) — it is currently only solidly trustworthy for the best-ranked tier.</li>
-    <li><strong>Near-zero-traffic pages remain the hardest cases:</strong> the model's most confidently wrong predictions were all on pages with 1–3 total impressions over 90 days — exactly where the underlying label is noisiest, since a page moving from "1 click" to "0 clicks" registers as a full decline despite carrying almost no real signal.</li>
+    <li><strong>Observational, one snapshot.</strong> Pages weren't refreshed at random, so the data can't measure what a refresh does.</li>
+    <li><strong>Proxy label.</strong> A >20% month-over-month impression drop includes seasonality, SERP changes and tracking gaps, not only content decay.</li>
+    <li><strong>Modest discrimination (AUC ≈ 0.62).</strong> The lift is real at the top of a queue; below that, the order means little.</li>
+    <li><strong>Large variation between client groups.</strong> Precision@20 std ≈ 0.09 and base rates vary by ± 0.10 across folds. Some clients' queues will be much weaker than the average.</li>
+    <li><strong>The age assumption is the weakest link.</strong> Live pages are 30 days older than training pages (drift index PSI 0.93 on age, by construction), and the live queue is dominated by the youngest pages. The first month of real outcomes is the test.</li>
+    <li><strong>No position, engagement or update-date signal</strong> in the honest model: the CSV has no pre-outcome window for them.</li>
+    <li><strong>Starter slice only</strong> (30k pages, 32 clients, all ≥ 90 days old).</li>
+    <li><strong>No untouched final holdout.</strong> Model selection used the same cross-validation; with two candidates the optimism is small but not zero.</li>
   </ul>
 </section>
 
 <section id="recommendations">
   <div class="section-label">07 / Ranked Recommendations</div>
   <h2>Action playbook</h2>
+  <p>The live queue (W07) scores 20,128 pages and gives each of 29 clients a top-10 review list — 280 pages: <strong>180 <code>REVIEW_FIRST</code></strong> (highest risk, at least median traffic), <strong>93 <code>WATCH</code></strong> (high risk, little traffic), <strong>7 <code>CTR_CHECK</code></strong>. Every page carries up to two reason codes, built from the model's own per-page contributions so they explain the actual score.</p>
+  <figure>
+    <img src="img/fig4_reasons.svg" alt="Bar chart of lead reason codes in the live queue: PROFILE 94, VISIBLE_LOW_CLICKS 80, YOUNGER_PAGE 61, HIGH_VISIBILITY 32, LOW_SESSIONS 13.">
+    <figcaption>Most queue pages are led by a traffic pattern (visible but unclicked, high visibility) or age. <code>PROFILE</code> — led by metadata such as unknown search intent — is the weakest code and gets reviewed last.</figcaption>
+  </figure>
+  <h3>Example: the largest client's queue (pseudonymous IDs)</h3>
+  <div class="table-scroll"><table>
+    <tr><th>#</th><th>Page</th><th>Action</th><th>Reason codes</th><th>Impr. 30d</th><th>Clicks 30d</th><th>Age</th></tr>
+    <tr><td class="mono">1</td><td class="mono" style="white-space:nowrap">…f14938</td><td>REVIEW_FIRST</td><td class="mono">VISIBLE_LOW_CLICKS · YOUNGER_PAGE</td><td class="mono">821</td><td class="mono">0</td><td class="mono">95d</td></tr>
+    <tr><td class="mono">2</td><td class="mono" style="white-space:nowrap">…ef361f</td><td>REVIEW_FIRST</td><td class="mono">HIGH_VISIBILITY · LOW_SESSIONS</td><td class="mono">1,092</td><td class="mono">0</td><td class="mono">112d</td></tr>
+    <tr><td class="mono">3</td><td class="mono" style="white-space:nowrap">…3dcb7c</td><td>REVIEW_FIRST</td><td class="mono">VISIBLE_LOW_CLICKS · YOUNGER_PAGE</td><td class="mono">2,666</td><td class="mono">1</td><td class="mono">103d</td></tr>
+    <tr><td class="mono">4</td><td class="mono" style="white-space:nowrap">…553583</td><td>REVIEW_FIRST</td><td class="mono">VISIBLE_LOW_CLICKS · YOUNGER_PAGE</td><td class="mono">1,547</td><td class="mono">0</td><td class="mono">103d</td></tr>
+    <tr><td class="mono">5</td><td class="mono" style="white-space:nowrap">…50d0be</td><td>REVIEW_FIRST</td><td class="mono">VISIBLE_LOW_CLICKS · YOUNGER_PAGE</td><td class="mono">519</td><td class="mono">0</td><td class="mono">98d</td></tr>
+  </table></div>
+  <p>The pattern is concrete and checkable in a minute per page: around 100 days old, hundreds to thousands of monthly impressions, and almost no clicks.</p>
+
+  <h3>In priority order</h3>
   <ol class="list">
-    <li><strong>Ship the Random Forest, not the W04 rule</strong> — the rule underperforms random ranking at precision@50 on held-out clients; the trained model beats both the rule and random ranking clearly.</li>
-    <li><strong>Restrict production use to the <code>top_3</code> position tier for now</strong> — that's the only tier where the model's error rate (9.1%) is low enough to trust without manual review.</li>
-    <li><strong>Add a minimum-impression floor to the label itself</strong> before any further training — near-zero-traffic pages are the model's most confidently wrong cases precisely because the label is noise at that volume, not because the model is failing.</li>
-    <li><strong>Add per-client normalization</strong> before deploying any score across clients of different traffic scale.</li>
-    <li><strong>Exclude or repair the 91–180 day staleness tier</strong> until the batch artifact behind the repeated 104-day value is understood.</li>
-    <li><strong>Replace <code>trend_direction</code></strong> with a proper forward-looking label before scaling this onto the full warehouse.</li>
+    <li><strong>Each month, review each client's <code>REVIEW_FIRST</code> pages first</strong> — highest decline risk with real traffic at stake.</li>
+    <li><strong>For <code>VISIBLE_LOW_CLICKS</code>, start with the title and meta description.</strong> Impressions without clicks is the cheapest thing to test; check which queries the page is shown for before rewriting the body.</li>
+    <li><strong>For <code>YOUNGER_PAGE</code>, check whether rankings are still settling</strong> before a full rewrite.</li>
+    <li><strong>Review <code>PROFILE</code>-led and <code>WATCH</code> pages last</strong>, and re-check them next month.</li>
+    <li><strong>Stop prioritising by staleness alone.</strong> It showed no ranking signal on unseen clients.</li>
+    <li><strong>Before acting on any page, a person checks:</strong> is the drop steady or a one-day dip; is it seasonal; did the query mix change; was the page just edited?</li>
+    <li><strong>Never automate</strong> deleting, noindexing, merging or redirecting from this score; never auto-rewrite and publish; never promise clients traffic outcomes from it; never compare clients by score.</li>
+    <li><strong>Measure the queue monthly.</strong> Record the share of each queue that actually declined. If it falls to the base rate two months running, retire the model; retrain on the newest window every month regardless.</li>
   </ol>
 </section>
 
 <section id="reproducibility">
   <div class="section-label">08 / Reproducibility</div>
   <h2>Reproducibility</h2>
-  <p>All notebooks referenced in this paper are committed to the public repository below, in reading order.</p>
-  <table>
-    <tr><th>Week</th><th>Notebook</th></tr>
-    <tr><td>W01</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w01_research_question.ipynb">w01_research_question.ipynb</a></td></tr>
-    <tr><td>W02</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w02_ml_task_framing.ipynb">w02_ml_task_framing.ipynb</a></td></tr>
-    <tr><td>W03</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w03_data_contract.ipynb">w03_data_contract.ipynb</a></td></tr>
-    <tr><td>W04</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w04_baseline_score.ipynb">w04_baseline_score.ipynb</a></td></tr>
-    <tr><td>W05</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w05_model.ipynb">w05_model.ipynb</a></td></tr>
-  </table>
+  <p>Everything runs on the starter CSV shipped in the repository (no token needed), with fixed seeds (<code>random_state=42</code>; fold shuffles seeded 0–4). Shared logic lives in <a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/refresh_lib.py"><code>work/refresh_lib.py</code></a>.</p>
+  <pre><code>git clone https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh
+cd flyrank-ml-internship-shwetabh &amp;&amp; pip install -r requirements.txt
+cd work/notebooks
+jupyter nbconvert --to notebook --execute --inplace capstone.ipynb   # runs W06 + W07 first if needed (~6 min)</code></pre>
+  <div class="table-scroll"><table>
+    <tr><th>Week</th><th>Notebook</th><th>What it adds</th></tr>
+    <tr><td>W01</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w01_research_question.ipynb">w01_research_question</a></td><td>Lane, question, metric</td></tr>
+    <tr><td>W02</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w02_ml_task_framing.ipynb">w02_ml_task_framing</a></td><td>Heuristic vs staleness baseline</td></tr>
+    <tr><td>W03</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w03_data_contract.ipynb">w03_data_contract</a></td><td>Warehouse data contract, leakage trap</td></tr>
+    <tr><td>W04</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w04_baseline_score.ipynb">w04_baseline_score</a></td><td>Signal verdicts, rule baseline</td></tr>
+    <tr><td>W05</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w05_model.ipynb">w05_model</a></td><td>First trained models, single holdout</td></tr>
+    <tr><td>W06</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w06_validation_audit.ipynb">w06_validation_audit</a></td><td>Grouped CV, window-overlap fix, final comparison</td></tr>
+    <tr><td>W07</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/w07_action_playbook.ipynb">w07_action_playbook</a></td><td>Live queue, reason codes, monitoring</td></tr>
+    <tr><td>Capstone</td><td><a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh/blob/main/work/notebooks/capstone.ipynb">capstone</a></td><td>Every number and chart on this page</td></tr>
+  </table></div>
   <p>Repository: <a href="https://github.com/Shwetabh1013/flyrank-ml-internship-shwetabh">github.com/Shwetabh1013/flyrank-ml-internship-shwetabh</a></p>
 </section>
 
+<section id="credit">
+  <div class="section-label">09 / Acknowledgments &amp; Data Credit</div>
+  <h2>Acknowledgments &amp; data credit</h2>
+  <p><strong>Built on the FlyRank ML Internship dataset</strong> — <a href="https://flyrank.ai">flyrank.ai</a>. Thanks to the FlyRank team for the anonymized data, the warehouse release, and the internship's skills library, whose leakage and honest-claims checklists shaped the W06 audit.</p>
+  <p>Background reference: FlyRank, <em>The State of AI-Driven SEO</em>, March 2026 (included in the repository's <code>docs/</code>).</p>
+</section>
+
 <footer>
-  <p>Built on the FlyRank ML Internship dataset — <a href="https://flyrank.ai">flyrank.ai</a>.</p>
-  <p>Findings in this paper are observed and directional, intended to support editorial decision-making, not to characterize or reverse-engineer any search engine's ranking algorithm.</p>
+  <p>Findings are observed and directional, meant to support editorial decisions — not to characterize or reverse-engineer any search engine's ranking algorithm, and not to claim that refreshing content causes recovery.</p>
 </footer>
 
 </body>

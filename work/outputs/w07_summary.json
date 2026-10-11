@@ -1,0 +1,18 @@
+{
+  "pages_trained":21578,
+  "pages_scored":20128,
+  "client_queues":29,
+  "queue_pages":280,
+  "action_mix":{
+    "REVIEW_FIRST":180,
+    "WATCH":93,
+    "CTR_CHECK":7
+  },
+  "lead_reason_mix":{
+    "PROFILE":94,
+    "VISIBLE_LOW_CLICKS":80,
+    "YOUNGER_PAGE":61,
+    "HIGH_VISIBILITY":32,
+    "LOW_SESSIONS":13
+  }
+}
